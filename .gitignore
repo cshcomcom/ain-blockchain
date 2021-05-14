@@ -172,4 +172,7 @@ dist/
 tmp/
 temp/
 
+# Blockchain data
+blockchain/blockchains
+
 # End of https://www.gitignore.io/api/node,code,linux,macos

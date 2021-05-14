@@ -453,7 +453,7 @@ server.headersTimeout = 630 * 1000; // 630 seconds
 
 // Lets start this p2p client up so we look for peers in the network and listen for changes
 // in either DATABASE or NUMBER OF SERVERS.
-p2pClient.run();
+p2pClient.run(node);
 
 module.exports = app;
 

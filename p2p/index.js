@@ -1,6 +1,14 @@
 /* eslint no-mixed-operators: "off" */
 const _ = require('lodash');
 const P2pServer = require('./server');
+const Libp2p = require('libp2p');
+const PeerId = require('peer-id');
+const TCP = require('libp2p-tcp');
+const MPLEX = require('libp2p-mplex');
+const { Multiaddr } = require('multiaddr')
+const MulticastDNS = require('libp2p-mdns');
+const KadDHT = require('libp2p-kad-dht');
+const { NOISE } = require('libp2p-noise');
 const url = require('url');
 const Websocket = require('ws');
 const semver = require('semver');
@@ -31,7 +39,7 @@ const {
   encapsulateMessage
 } = require('./util');
 
-const RECONNECT_INTERVAL_MS = 5 * 1000;  // 5 seconds
+const RECONNECT_INTERVAL_MS = 30 * 60 * 1000;  // 30 minutes
 const UPDATE_TO_TRACKER_INTERVAL_MS = 5 * 1000;  // 5 seconds
 const HEARTBEAT_INTERVAL_MS = 60 * 1000;  // 1 minute
 
@@ -42,12 +50,13 @@ class P2pClient {
         this, node, minProtocolVersion, maxProtocolVersion, this.maxInbound);
     this.trackerWebSocket = null;
     this.outbound = {};
+    this.peerId = null;
     this.startHeartbeat();
   }
 
   run() {
-    this.server.listen();
     this.setIntervalForTrackerConnection();
+    this.runP2pNode();
   }
 
   // NOTE(minsu): the total number of connection is up to more than 5 without limit.
@@ -73,6 +82,54 @@ class P2pClient {
       incomingPeers: incomingPeers,
       outgoingPeers: outgoingPeers,
     };
+  }
+
+  async runP2pNode() {
+    await this.server.setUpIpAddresses();
+    this.peerId = await PeerId.create();
+    console.log(`PEER ID: ${this.peerId.toB58String()}`);
+    const addr = `/ip4/${this.server.node.ipAddrExternal}/tcp/${P2P_PORT}`;
+    console.log(addr);
+    this.p2pNode = new Libp2p({
+      peerId: this.peerId,
+      addresses: {
+        listen: [
+          new Multiaddr(addr)
+        ]
+      },
+      modules: {
+        transport: [TCP],
+        peerDiscovery: [MulticastDNS],
+        streamMuxer: [MPLEX],
+        connEncryption: [NOISE],
+        dht: KadDHT
+      },
+      config: {
+        dht: {
+          kBucketSize: 2,
+          randomWalk: {
+            enabled: true,
+            interval: 300e3,
+            timeout: 10e3
+          },
+          enabled: true
+        }
+      }
+    });
+
+    this.p2pNode.connectionManager.on('peer:connect', (connection) => {
+      logger.info(`Connection established to: ${connection.remotePeer.toB58String()}`)
+    });
+    this.p2pNode.on('peer:discovery', (peerId) => {
+      logger.info(`Discovered: ${peerId.toB58String()}`);
+    });
+
+    setInterval(() => {
+      console.log(this.p2pNode.connectionManager.size);
+      console.log(this.p2pNode.connectionManager.connections.values());
+    }, 5000);
+
+    await this.p2pNode.start();
   }
 
   setIntervalForTrackerConnection() {
@@ -153,32 +210,6 @@ class P2pClient {
   }
 
   async setTrackerEventHandlers() {
-    const node = this.server.node;
-    this.trackerWebSocket.on('message', async (message) => {
-      try {
-        const parsedMsg = JSON.parse(message);
-        logger.info(`\n << Message from [TRACKER]: ${JSON.stringify(parsedMsg, null, 2)}`);
-        if (this.connectToPeers(parsedMsg.newManagedPeerInfoList)) {
-          logger.debug(`Updated MANAGED peers info: ` +
-              `${JSON.stringify(this.server.managedPeersInfo, null, 2)}`);
-        }
-        if (node.state === BlockchainNodeStates.STARTING) {
-          node.state = BlockchainNodeStates.SYNCING;
-          if (parsedMsg.numLivePeers === 0) {
-            const lastBlockWithoutProposal = node.init(true);
-            await this.server.tryInitializeShard();
-            node.state = BlockchainNodeStates.SERVING;
-            this.server.consensus.init(lastBlockWithoutProposal);
-          } else {
-            // Consensus will be initialized after syncing with peers
-            node.init(false);
-          }
-        }
-      } catch (error) {
-        logger.error(error.stack);
-      }
-    });
-
     this.trackerWebSocket.on('close', (code) => {
       logger.info(`\n Disconnected from [TRACKER] ${TRACKER_WS_ADDR} with code: ${code}`);
       this.clearIntervalForTrackerUpdate();

@@ -61,8 +61,7 @@ const DISK_USAGE_PATH = os.platform() === 'win32' ? 'c:' : '/';
 // A peer-to-peer network server that broadcasts changes in the database.
 // TODO(minsu): Sign messages to tracker or peer.
 class P2pServer {
-  constructor (p2pClient, node, minProtocolVersion, maxProtocolVersion, maxInbound) {
-    this.wsServer = null;
+  constructor(p2pClient, node, minProtocolVersion, maxProtocolVersion, maxInbound) {
     this.client = p2pClient;
     this.node = node;
     this.consensus = new Consensus(this, node);
@@ -72,39 +71,6 @@ class P2pServer {
     this.majorDataProtocolVersion = VersionUtil.toMajorVersion(DATA_PROTOCOL_VERSION);
     this.inbound = {};
     this.maxInbound = maxInbound;
-  }
-
-  listen() {
-    this.wsServer = new Websocket.Server({
-      port: P2P_PORT,
-      // Enables server-side compression. For option details, see
-      // https://github.com/websockets/ws/blob/master/doc/ws.md#new-websocketserveroptions-callback
-      perMessageDeflate: {
-        zlibDeflateOptions: {
-          // See zlib defaults.
-          chunkSize: 1024,
-          memLevel: 7,
-          level: 3
-        },
-        zlibInflateOptions: {
-          chunkSize: 10 * 1024
-        },
-        // Other options settable:
-        clientNoContextTakeover: true, // Defaults to negotiated value.
-        serverNoContextTakeover: true, // Defaults to negotiated value.
-        serverMaxWindowBits: 10, // Defaults to negotiated value.
-        // Below options specified as default values.
-        concurrencyLimit: 10, // Limits zlib concurrency for perf.
-        threshold: 1024 // Size (in bytes) below which messages should not be compressed.
-      }
-    });
-    // Set the number of maximum clients.
-    this.wsServer.setMaxListeners(this.maxInbound);
-    this.wsServer.on('connection', (socket) => {
-      this.setPeerEventHandlers(socket);
-    });
-    logger.info(`Listening to peer-to-peer connections on: ${P2P_PORT}\n`);
-    this.setUpIpAddresses().then(() => { });
   }
 
   getNodeAddress() {
@@ -246,7 +212,6 @@ class P2pServer {
     logger.info(`Disconnect from connected peers.`);
     this.disconnectFromPeers();
     logger.info(`Close server.`);
-    this.wsServer.close();
   }
 
   getIpAddress(internal = false) {
@@ -291,12 +256,13 @@ class P2pServer {
   async setUpIpAddresses() {
     const ipAddrInternal = await this.getIpAddress(true);
     const ipAddrExternal = await this.getIpAddress(false);
+    console.log(ipAddrExternal);
     this.node.setIpAddresses(ipAddrInternal, ipAddrExternal);
     return true;
   }
 
   disconnectFromPeers() {
-    Object.values(this.inbound).forEach(socket => {
+    Object.values(this.inbound).forEach((socket) => {
       socket.close();
     });
   }
