@@ -11,6 +11,7 @@ on:
       - 'develop'
       - 'release/*'
       - 'master'
+    types: [opened, closed]
 jobs:
   print:
     runs-on: ubuntu-latest
