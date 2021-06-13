@@ -24,7 +24,7 @@ jobs:
           echo "${{ github.event.pull_request.base.ref }}"
           echo "${{ github.event_name }}"
   performance_test:
-    if: ${{ github.event.pull_request.merged == 'true' }}
+    if: github.event.pull_request.merged
     runs-on: ubuntu-latest
     steps:
       - name: Triggered Test
