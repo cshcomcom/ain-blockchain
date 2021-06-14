@@ -1,6 +1,6 @@
 const stringify = require('fast-json-stable-stringify');
 const sizeof = require('object-sizeof');
-const moment = require('moment');
+const moment = require('moment'); //
 const logger = require('../logger')('BLOCK');
 const ChainUtil = require('../common/chain-util');
 const Transaction = require('../tx-pool/transaction');
