@@ -24,11 +24,16 @@ jobs:
           echo "${{ github.event.pull_request.base.ref }}"
           echo "${{ github.event_name }}"
   performance_test:
-    if: github.event.pull_request.merged
+    if: github.event_name == "pull_request" && github.event.action == "closed" && github.event.pull_request.merged && github.event.pull_request.base.ref == "master"
     runs-on: ubuntu-latest
     steps:
       - name: Triggered Test
+        uses: google-github-actions/setup-gcloud@master
+        with:
+          service_account_key: ${{ secrets.PERF_TEST_PIPELINE_GCP_SA_KEY }}
+          project_id: ${{ secrets.PERF_TEST_PIPELINE_GCP_PROJECT_ID }}
         run: |-
           echo "Triggered"
           echo "head:${{ github.event.pull_request.head.ref }}"
           echo "base:${{ github.event.pull_request.base.ref }}"
+          gcloud compute ssh "$secrets.PERF_TEST_PIPELINE_GCE_INSTANCE" --zone "$secrets.PERF_TEST_PIPELINE_GCE_INSTANCE_ZONE" -- "echo $github.event.pull_request.head.ref"
