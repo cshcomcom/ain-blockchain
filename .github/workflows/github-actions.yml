@@ -27,11 +27,11 @@ jobs:
     if: github.event_name == "pull_request" && github.event.action == "closed" && github.event.pull_request.merged && github.event.pull_request.base.ref == "master"
     runs-on: ubuntu-latest
     steps:
-      - name: Triggered Test
-        uses: google-github-actions/setup-gcloud@master
+      - uses: google-github-actions/setup-gcloud@master
         with:
           service_account_key: ${{ secrets.PERF_TEST_PIPELINE_GCP_SA_KEY }}
           project_id: ${{ secrets.PERF_TEST_PIPELINE_GCP_PROJECT_ID }}
+      - name: Triggered Test
         run: |-
           echo "Triggered"
           echo "head:${{ github.event.pull_request.head.ref }}"
