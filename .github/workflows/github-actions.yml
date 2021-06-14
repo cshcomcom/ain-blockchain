@@ -28,4 +28,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Triggered Test
-        run: echo "Triggered"
+        run: |-
+          echo "Triggered"
+          echo "head:${{ github.event.pull_request.head.ref }}"
+          echo "base:${{ github.event.pull_request.base.ref }}"
